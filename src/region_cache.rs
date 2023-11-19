@@ -73,23 +73,34 @@ impl<C: RetryClientTrait> RegionCache<C> {
         let region_cache_guard = self.region_cache.read().await;
         let res = {
             region_cache_guard
+                // get the key to ver id map
                 .key_to_ver_id
+                // get the entries up to and including the key
                 .range(..=key)
+                // get the greatest key found in the cache less than key
                 .next_back()
                 .map(|(x, y)| (x.clone(), y.clone()))
         };
 
+        // if entry found
         if let Some((_, candidate_region_ver_id)) = res {
             let region = region_cache_guard
+                // get ver id to region map
                 .ver_id_to_region
+                // get the region for the ver id
                 .get(&candidate_region_ver_id)
                 .unwrap();
 
+            // check if that region contains our key
             if region.contains(key) {
+                let key: &[u8] = key.into();
+                println!("XXYZ2 key found in region: {}, {:?}", hex::encode(key), region);
                 return Ok(region.clone());
             }
         }
         drop(region_cache_guard);
+
+        // if not, read through
         self.read_through_region_by_key(key.clone()).await
     }
 
@@ -132,7 +143,9 @@ impl<C: RetryClientTrait> RegionCache<C> {
 
     /// Force read through (query from PD) and update cache
     pub async fn read_through_region_by_key(&self, key: Key) -> Result<RegionWithLeader> {
+        let key: &[u8] = (&key).into();
         let region = self.inner_client.clone().get_region(key.into()).await?;
+        println!("XXYZ3 fetched region for key: {} {:?}", hex::encode(key), region);
         self.add_region(region.clone()).await;
         Ok(region)
     }

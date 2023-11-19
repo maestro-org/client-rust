@@ -86,13 +86,14 @@ pub fn store_stream_for_range<PdC: PdClient>(
         BoundRange::from(range.clone())
     };
     pd_client
-        .stores_for_range(bnd_range)
+        .stores_for_range(bnd_range.clone())
         .map_ok(move |store| {
             let region_range = store.region_with_leader.range();
             let result_range = range_intersection(
-                region_range,
+                region_range.clone(),
                 (range.0.clone().into(), range.1.clone().into()),
             );
+            println!("XXYZ10 bnd_range {:?} region_range {:?} {:?}", bnd_range, region_range, result_range);
             ((result_range.0.into(), result_range.1.into()), store)
         })
         .boxed()

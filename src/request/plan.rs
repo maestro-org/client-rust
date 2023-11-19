@@ -115,6 +115,7 @@ where
         let mut handles = Vec::new();
         for shard in shards {
             let (shard, region_store) = shard?;
+            println!("XXYZ13 shard {:?}", region_store.region_with_leader);
             let mut clone = current_plan.clone();
             clone.apply_shard(shard, &region_store)?;
             let handle = tokio::spawn(Self::single_shard_handler(

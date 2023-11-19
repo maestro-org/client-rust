@@ -547,6 +547,7 @@ impl Shardable for kvrpcpb::ScanLockRequest {
         &self,
         pd_client: &Arc<impl PdClient>,
     ) -> BoxStream<'static, Result<(Self::Shard, RegionStore)>> {
+        println!("XXYZ7 scanlockreq store_stream_for_range {}:{}", hex::encode(&self.start_key), hex::encode(&self.end_key));
         store_stream_for_range(
             (self.start_key.clone(), self.end_key.clone()),
             pd_client.clone(),
