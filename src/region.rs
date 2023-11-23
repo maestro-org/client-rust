@@ -40,7 +40,6 @@ impl RegionWithLeader {
         let key: &[u8] = key.into();
         let start_key = &self.region.start_key;
         let end_key = &self.region.end_key;
-        println!("XXYZ key: {}, start: {}, end: {}", hex::encode(key), hex::encode(start_key), hex::encode(end_key));
         key >= start_key.as_slice() && (key < end_key.as_slice() || end_key.is_empty())
     }
 

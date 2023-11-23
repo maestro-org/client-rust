@@ -116,6 +116,13 @@ pub trait PdClient: Send + Sync + 'static {
         range: BoundRange,
     ) -> BoxStream<'static, Result<RegionStore>> {
         let (start_key, end_key) = range.into_keys();
+
+        let rev = if let Some(e) = end_key.clone() {
+            start_key > e
+        } else {
+            false
+        };
+
         stream_fn(Some(start_key), move |start_key| {
             let end_key = end_key.clone();
             let this = self.clone();
@@ -127,16 +134,23 @@ pub trait PdClient: Send + Sync + 'static {
 
                 let region = this.region_for_key(&start_key).await?;
                 let region_end = region.end_key();
+
+                if rev {
+                    println!("AABC1 region: {region:?} start: {start_key:?}, end: {end_key:?}")
+                }
+
                 let store = this.map_region_to_store(region).await?;
-                // if user end key within region, return None and store
+
                 if end_key
                     .map(|x| x <= region_end && !x.is_empty())
                     .unwrap_or(false)
                     || region_end.is_empty()
                 {
+                    if rev {
+                        println!("AABC2 end key in region end")
+                    }
                     return Ok(Some((None, store)));
                 }
-                // otherwise return the end of the region
                 Ok(Some((Some(region_end), store)))
             }
         })
@@ -199,12 +213,10 @@ pub trait PdClient: Send + Sync + 'static {
         mut region: RegionWithLeader,
         enable_mvcc_codec: bool,
     ) -> Result<RegionWithLeader> {
-        println!("XXYZ12 predecoderegion {:?}", region);
         if enable_mvcc_codec {
             codec::decode_bytes_in_place(&mut region.region.start_key, false)?;
             codec::decode_bytes_in_place(&mut region.region.end_key, false)?;
         }
-        println!("XXYZ12 postdecoderegion {:?}", region);
         Ok(region)
     }
 
@@ -247,13 +259,8 @@ impl<Cod: Codec, KvC: KvConnect + Send + Sync + 'static> PdClient for PdRpcClien
     async fn region_for_key(&self, key: &Key) -> Result<RegionWithLeader> {
         let enable_mvcc_codec = self.enable_mvcc_codec;
         let key = if enable_mvcc_codec {
-            let out = key.to_encoded();
-            let outvec: &[u8] = (&out).into();
-            println!("XXYZ11 encoding key: {}", hex::encode(outvec));
-            out
+            key.to_encoded()
         } else {
-            let keyvec: &[u8] = (key).into();
-            println!("XXYZ11 not encoding key: {}", hex::encode(keyvec));
             key.clone()
         };
 

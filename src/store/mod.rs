@@ -80,6 +80,7 @@ pub fn store_stream_for_range<PdC: PdClient>(
     range: (Vec<u8>, Vec<u8>),
     pd_client: Arc<PdC>,
 ) -> BoxStream<'static, Result<((Vec<u8>, Vec<u8>), RegionStore)>> {
+    let rev = range.0 > range.1;
     let bnd_range = if range.1.is_empty() {
         BoundRange::range_from(range.0.clone().into())
     } else {
@@ -88,12 +89,15 @@ pub fn store_stream_for_range<PdC: PdClient>(
     pd_client
         .stores_for_range(bnd_range.clone())
         .map_ok(move |store| {
+            // bnd_range is reversed
             let region_range = store.region_with_leader.range();
             let result_range = range_intersection(
                 region_range.clone(),
                 (range.0.clone().into(), range.1.clone().into()),
             );
-            println!("XXYZ10 bnd_range {:?} region_range {:?} {:?}", bnd_range, region_range, result_range);
+            if rev {
+                println!("AABC3 bnd_range {:?} region_range {:?} {:?}", bnd_range, region_range, result_range);
+            }
             ((result_range.0.into(), result_range.1.into()), store)
         })
         .boxed()

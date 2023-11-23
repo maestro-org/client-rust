@@ -93,8 +93,6 @@ impl<C: RetryClientTrait> RegionCache<C> {
 
             // check if that region contains our key
             if region.contains(key) {
-                let key: &[u8] = key.into();
-                println!("XXYZ2 key found in region: {}, {:?}", hex::encode(key), region);
                 return Ok(region.clone());
             }
         }
@@ -145,7 +143,6 @@ impl<C: RetryClientTrait> RegionCache<C> {
     pub async fn read_through_region_by_key(&self, key: Key) -> Result<RegionWithLeader> {
         let key: &[u8] = (&key).into();
         let region = self.inner_client.clone().get_region(key.into()).await?;
-        println!("XXYZ3 fetched region for key: {} {:?}", hex::encode(key), region);
         self.add_region(region.clone()).await;
         Ok(region)
     }

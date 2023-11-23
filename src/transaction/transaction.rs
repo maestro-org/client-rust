@@ -777,7 +777,6 @@ impl<Cod: Codec, PdC: PdClient<Codec = Cod>> Transaction<Cod, PdC> {
                     let request =
                         new_scan_request(new_range, timestamp, new_limit, key_only, reverse);
                     let encoded_req = EncodedRequest::new(request, rpc.get_codec());
-                    println!("XXYZ14 encoded_req {:?}", encoded_req.inner);
                     let plan = PlanBuilder::new(rpc, encoded_req)
                         .resolve_lock(retry_options.lock_backoff)
                         .retry_multi_region(retry_options.region_backoff)
