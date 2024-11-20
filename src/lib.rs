@@ -153,11 +153,11 @@ pub use crate::timestamp::TimestampExt;
 #[doc(inline)]
 pub use crate::transaction::lowering as transaction_lowering;
 #[doc(inline)]
-pub use crate::transaction::CommitTTLParameters;
-#[doc(inline)]
 pub use crate::transaction::CheckLevel;
 #[doc(inline)]
 pub use crate::transaction::Client as TransactionClient;
+#[doc(inline)]
+pub use crate::transaction::CommitTTLParameters;
 #[doc(inline)]
 pub use crate::transaction::Snapshot;
 #[doc(inline)]

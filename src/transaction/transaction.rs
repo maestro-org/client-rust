@@ -757,7 +757,7 @@ impl<PdC: PdClient> Transaction<PdC> {
         let request = new_heart_beat_request(
             self.timestamp.clone(),
             primary_key,
-            self.start_instant.elapsed().as_millis() as u64 + MAX_TTL,
+            self.start_instant.elapsed().as_millis() as u64 + self.options.ttl_parameters.max_ttl,
         );
         let plan = PlanBuilder::new(self.rpc.clone(), self.keyspace, request)
             .resolve_lock(
@@ -847,7 +847,7 @@ impl<PdC: PdClient> Transaction<PdC> {
             keys.clone().into_iter(),
             primary_lock,
             self.timestamp.clone(),
-            MAX_TTL,
+            self.options.ttl_parameters.max_ttl,
             for_update_ts.clone(),
             need_value,
         );
@@ -946,6 +946,7 @@ impl<PdC: PdClient> Transaction<PdC> {
             return;
         }
         self.is_heartbeat_started = true;
+        let max_ttl = self.options.ttl_parameters.max_ttl;
 
         let status = self.status.clone();
         let primary_key = self
@@ -979,7 +980,7 @@ impl<PdC: PdClient> Transaction<PdC> {
                 let request = new_heart_beat_request(
                     start_ts.clone(),
                     primary_key.clone(),
-                    start_instant.elapsed().as_millis() as u64 + MAX_TTL,
+                    start_instant.elapsed().as_millis() as u64 + max_ttl,
                 );
                 let plan = PlanBuilder::new(rpc.clone(), keyspace, request)
                     .retry_multi_region(region_backoff.clone())
