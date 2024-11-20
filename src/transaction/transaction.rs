@@ -743,7 +743,7 @@ impl<Cod: Codec, PdC: PdClient<Codec = Cod>> Transaction<Cod, PdC> {
         let request = new_heart_beat_request(
             self.timestamp.clone(),
             primary_key,
-            self.start_instant.elapsed().as_millis() as u64 + MAX_TTL,
+            self.start_instant.elapsed().as_millis() as u64 + self.options.ttl_parameters.max_ttl,
         );
         let encoded_req = EncodedRequest::new(request, self.rpc.get_codec());
         let plan = PlanBuilder::new(self.rpc.clone(), encoded_req)
@@ -828,7 +828,7 @@ impl<Cod: Codec, PdC: PdClient<Codec = Cod>> Transaction<Cod, PdC> {
             keys.clone().into_iter(),
             primary_lock,
             self.timestamp.clone(),
-            MAX_TTL,
+            self.options.ttl_parameters.max_ttl,
             for_update_ts.clone(),
             need_value,
         );
@@ -923,6 +923,7 @@ impl<Cod: Codec, PdC: PdClient<Codec = Cod>> Transaction<Cod, PdC> {
             return;
         }
         self.is_heartbeat_started = true;
+        let max_ttl = self.options.ttl_parameters.max_ttl;
 
         let status = self.status.clone();
         let primary_key = self
@@ -955,7 +956,7 @@ impl<Cod: Codec, PdC: PdClient<Codec = Cod>> Transaction<Cod, PdC> {
                 let request = new_heart_beat_request(
                     start_ts.clone(),
                     primary_key.clone(),
-                    start_instant.elapsed().as_millis() as u64 + MAX_TTL,
+                    start_instant.elapsed().as_millis() as u64 + max_ttl,
                 );
                 let encoded_req = EncodedRequest::new(request, rpc.get_codec());
                 let plan = PlanBuilder::new(rpc.clone(), encoded_req)
