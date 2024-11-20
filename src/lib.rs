@@ -94,8 +94,6 @@
 
 pub mod backoff;
 #[doc(hidden)]
-pub mod proto; // export `proto` to enable user customized codec
-#[doc(hidden)]
 pub mod raw;
 pub mod request;
 #[doc(hidden)]
@@ -106,6 +104,7 @@ mod compat;
 mod config;
 mod kv;
 mod pd;
+mod proto;
 mod region;
 mod region_cache;
 mod stats;
@@ -146,8 +145,6 @@ pub use crate::raw::Client as RawClient;
 #[doc(inline)]
 pub use crate::raw::ColumnFamily;
 #[doc(inline)]
-pub use crate::request::codec;
-#[doc(inline)]
 pub use crate::request::RetryOptions;
 #[doc(inline)]
 pub use crate::timestamp::Timestamp;
@@ -156,11 +153,11 @@ pub use crate::timestamp::TimestampExt;
 #[doc(inline)]
 pub use crate::transaction::lowering as transaction_lowering;
 #[doc(inline)]
-pub use crate::transaction::CommitTTLParameters;
-#[doc(inline)]
 pub use crate::transaction::CheckLevel;
 #[doc(inline)]
 pub use crate::transaction::Client as TransactionClient;
+#[doc(inline)]
+pub use crate::transaction::CommitTTLParameters;
 #[doc(inline)]
 pub use crate::transaction::Snapshot;
 #[doc(inline)]
