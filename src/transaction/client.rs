@@ -307,9 +307,9 @@ impl<Cod: Codec> Client<Cod> {
     /// This is a simplified version of [GC in TiDB](https://docs.pingcap.com/tidb/stable/garbage-collection-overview).
     /// We omit the second step "delete ranges" which is an optimization for TiDB.
     pub async fn legacy_gc(&self, safepoint: Timestamp) -> Result<bool> {
-        let (resolved, live) = self.legacy_cleanup_locks((..).into(), &safepoint).await?;
+        let resolved = self.legacy_cleanup_locks((..).into(), &safepoint).await?;
 
-        info!("resolved {resolved} locks ({live} live), sending new safepoint to PD...");
+        info!("resolved {resolved} locks, sending new safepoint to PD...");
 
         // update safepoint to PD
         let res: bool = self
@@ -328,10 +328,9 @@ impl<Cod: Codec> Client<Cod> {
         &self,
         mut range: BoundRange,
         safepoint: &Timestamp,
-    ) -> Result<(usize, usize)> {
-        // resolved locks, live locks
-        // scan all locks with ts <= safepoint
-        let mut locks: Vec<kvrpcpb::LockInfo> = vec![];
+    ) -> Result<usize> {
+        let mut total_resolved = 0;
+
         loop {
             let req = new_scan_lock_request(range.clone(), &safepoint, SCAN_LOCK_BATCH_SIZE);
 
@@ -350,20 +349,15 @@ impl<Cod: Codec> Client<Cod> {
             start_key.push(0);
 
             range.from = Bound::Included(start_key.into());
-            
+
             info!("scanned {} keys, new range: {:?}", res.len(), range);
 
-            locks.extend(res);
+            let resolved = resolve_locks(res, self.pd.clone()).await?.len();
+
+            total_resolved += resolved;
         }
 
-        let to_resolve = locks.len();
-
-        // resolve locks
-        let live_locks = resolve_locks(locks, self.pd.clone()).await?.len();
-
-        let resolved_locks = to_resolve - live_locks;
-
-        Ok((resolved_locks, live_locks))
+        Ok(total_resolved)
     }
 
     // For test.
