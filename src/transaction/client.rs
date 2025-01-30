@@ -348,10 +348,10 @@ impl<Cod: Codec> Client<Cod> {
 
             let mut start_key = res.last().unwrap().key.clone();
             start_key.push(0);
-            
-            info!("scanned {} keys, new start: {:?}", res.len(), start_key);
 
             range.from = Bound::Included(start_key.into());
+            
+            info!("scanned {} keys, new range: {:?}", res.len(), range);
 
             locks.extend(res);
         }
