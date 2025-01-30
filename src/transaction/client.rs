@@ -17,6 +17,7 @@ use crate::request::codec::{ApiV1TxnCodec, ApiV2TxnCodec, Codec, EncodedRequest}
 use crate::request::plan::CleanupLocksResult;
 use crate::request::Plan;
 use crate::timestamp::TimestampExt;
+use crate::transaction::lock::cleanup_locks;
 use crate::transaction::lock::ResolveLocksOptions;
 use crate::transaction::lowering::new_scan_lock_request;
 use crate::transaction::lowering::new_unsafe_destroy_range_request;
@@ -28,10 +29,8 @@ use crate::Backoff;
 use crate::BoundRange;
 use crate::Result;
 
-use super::resolve_locks;
-
 // FIXME: cargo-culted value
-const SCAN_LOCK_BATCH_SIZE: u32 = 1024;
+const SCAN_LOCK_BATCH_SIZE: u32 = 8192;
 
 /// The TiKV transactional `Client` is used to interact with TiKV using transactional requests.
 ///
@@ -354,11 +353,9 @@ impl<Cod: Codec> Client<Cod> {
 
             let to_resolve = res.len();
 
-            let not_resolved = resolve_locks(res, self.pd.clone()).await?.len();
+            cleanup_locks(res, self.pd.clone()).await?;
 
-            let resolved = to_resolve - not_resolved;
-
-            total_resolved += resolved;
+            total_resolved += to_resolve;
         }
 
         Ok(total_resolved)

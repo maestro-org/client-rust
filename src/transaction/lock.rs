@@ -104,6 +104,64 @@ pub async fn resolve_locks(
     Ok(live_locks)
 }
 
+/// Resolve all locks, regardless of if they are expired or not
+pub async fn cleanup_locks(
+    locks: Vec<kvrpcpb::LockInfo>,
+    pd_client: Arc<impl PdClient>,
+) -> Result<()> {
+    debug!("cleaning up locks");
+    let expired_locks = locks; // assume all expired
+
+    // records the commit version of each primary lock (representing the status of the transaction)
+    let mut commit_versions: HashMap<u64, u64> = HashMap::new();
+    let mut clean_regions: HashMap<u64, HashSet<RegionVerId>> = HashMap::new();
+    for lock in expired_locks {
+        let region_ver_id = pd_client
+            .region_for_key(&lock.primary_lock.clone().into())
+            .await?
+            .ver_id();
+        // skip if the region is cleaned
+        if clean_regions
+            .get(&lock.lock_version)
+            .map(|regions| regions.contains(&region_ver_id))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
+        let commit_version = match commit_versions.get(&lock.lock_version) {
+            Some(&commit_version) => commit_version,
+            None => {
+                let request = requests::new_cleanup_request(lock.primary_lock, lock.lock_version);
+                let encoded_req = EncodedRequest::new(request, pd_client.get_codec());
+                let plan = crate::request::PlanBuilder::new(pd_client.clone(), encoded_req)
+                    .resolve_lock(OPTIMISTIC_BACKOFF)
+                    .retry_multi_region(DEFAULT_REGION_BACKOFF)
+                    .merge(CollectSingle)
+                    .post_process_default()
+                    .plan();
+                let commit_version = plan.execute().await?;
+                commit_versions.insert(lock.lock_version, commit_version);
+                commit_version
+            }
+        };
+
+        let cleaned_region = resolve_lock_with_retry(
+            &lock.key,
+            lock.lock_version,
+            commit_version,
+            pd_client.clone(),
+        )
+        .await?;
+        clean_regions
+            .entry(lock.lock_version)
+            .or_default()
+            .insert(cleaned_region);
+    }
+
+    Ok(())
+}
+
 async fn resolve_lock_with_retry(
     #[allow(clippy::ptr_arg)] key: &Vec<u8>,
     start_version: u64,
