@@ -305,10 +305,12 @@ impl<Cod: Codec> Client<Cod> {
     ///
     /// This is a simplified version of [GC in TiDB](https://docs.pingcap.com/tidb/stable/garbage-collection-overview).
     /// We omit the second step "delete ranges" which is an optimization for TiDB.
-    pub async fn legacy_gc(&self, safepoint: Timestamp) -> Result<bool> {
-        let resolved = self.legacy_cleanup_locks((..).into(), &safepoint).await?;
+    pub async fn legacy_gc(&self, safepoint: Timestamp, cleanup_locks: bool) -> Result<bool> {
+        if cleanup_locks {
+            let resolved = self.legacy_cleanup_locks((..).into(), &safepoint).await?;
 
-        info!("resolved {resolved} locks, sending new safepoint to PD...");
+            info!("resolved {resolved} locks, sending new safepoint to PD...");
+        }
 
         // update safepoint to PD
         let res: bool = self
