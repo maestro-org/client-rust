@@ -1,14 +1,17 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::ops::Bound;
 use std::sync::Arc;
 
 use log::debug;
 use log::info;
+use log::warn;
 
 use crate::backoff::{DEFAULT_REGION_BACKOFF, DEFAULT_STORE_BACKOFF};
 use crate::config::Config;
 use crate::pd::PdClient;
 use crate::pd::PdRpcClient;
+use crate::proto::kvrpcpb;
 use crate::proto::pdpb::Timestamp;
 use crate::request::codec::{ApiV1TxnCodec, ApiV2TxnCodec, Codec, EncodedRequest};
 use crate::request::plan::CleanupLocksResult;
@@ -24,6 +27,8 @@ use crate::transaction::TransactionOptions;
 use crate::Backoff;
 use crate::BoundRange;
 use crate::Result;
+
+use super::resolve_locks;
 
 // FIXME: cargo-culted value
 const SCAN_LOCK_BATCH_SIZE: u32 = 1024;
@@ -288,6 +293,75 @@ impl<Cod: Codec> Client<Cod> {
             .merge(crate::request::Collect)
             .plan();
         plan.execute().await
+    }
+
+    /// GC function from older version of library:
+    /// https://github.com/tikv/client-rust/blob/9ca9aa79c6e28a878e9ee9574fd96bbc2688ccea/src/transaction/client.rs
+    ///
+    /// Cleans stale MVCC records in TiKV.
+    ///
+    /// It is done by:
+    /// 1. resolve all locks with ts <= safepoint
+    /// 2. update safepoint to PD
+    ///
+    /// This is a simplified version of [GC in TiDB](https://docs.pingcap.com/tidb/stable/garbage-collection-overview).
+    /// We omit the second step "delete ranges" which is an optimization for TiDB.
+    pub async fn legacy_gc(&self, safepoint: Timestamp) -> Result<bool> {
+        let (resolved, live) = self.legacy_cleanup_locks((..).into(), &safepoint).await?;
+
+        info!("resolved {resolved} locks ({live} live), sending new safepoint to PD...");
+
+        // update safepoint to PD
+        let res: bool = self
+            .pd
+            .clone()
+            .update_safepoint(safepoint.version())
+            .await?;
+        if !res {
+            warn!("new safepoint != user-specified safepoint");
+        }
+
+        Ok(res)
+    }
+
+    pub async fn legacy_cleanup_locks(
+        &self,
+        mut range: BoundRange,
+        safepoint: &Timestamp,
+    ) -> Result<(usize, usize)> {
+        // resolved locks, live locks
+        // scan all locks with ts <= safepoint
+        let mut locks: Vec<kvrpcpb::LockInfo> = vec![];
+        loop {
+            let req = new_scan_lock_request(range.clone(), &safepoint, SCAN_LOCK_BATCH_SIZE);
+
+            let encoded_req = EncodedRequest::new(req, self.pd.get_codec());
+            let plan = crate::request::PlanBuilder::new(self.pd.clone(), encoded_req)
+                .retry_multi_region(DEFAULT_REGION_BACKOFF)
+                .merge(crate::request::Collect)
+                .plan();
+            let res: Vec<kvrpcpb::LockInfo> = plan.execute().await?;
+
+            if res.is_empty() {
+                break;
+            }
+
+            let mut start_key = res.last().unwrap().key.clone();
+            start_key.push(0);
+
+            range.from = Bound::Included(start_key.into());
+
+            locks.extend(res);
+        }
+
+        let to_resolve = locks.len();
+
+        // resolve locks
+        let live_locks = resolve_locks(locks, self.pd.clone()).await?.len();
+
+        let resolved_locks = to_resolve - live_locks;
+
+        Ok((resolved_locks, live_locks))
     }
 
     // For test.
