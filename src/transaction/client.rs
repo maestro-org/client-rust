@@ -352,7 +352,11 @@ impl<Cod: Codec> Client<Cod> {
 
             info!("scanned {} keys, new range: {:?}", res.len(), range);
 
-            let resolved = resolve_locks(res, self.pd.clone()).await?.len();
+            let to_resolve = res.len();
+
+            let not_resolved = resolve_locks(res, self.pd.clone()).await?.len();
+
+            let resolved = to_resolve - not_resolved;
 
             total_resolved += resolved;
         }
