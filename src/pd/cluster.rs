@@ -6,6 +6,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use log::debug;
 use log::error;
 use log::info;
 use log::warn;
@@ -183,7 +184,7 @@ impl Connection {
 
         match members {
             Some(members) => {
-                info!("All PD endpoints are consistent: {:?}", endpoints);
+                debug!("All PD endpoints are consistent: {:?}", endpoints);
                 Ok(members)
             }
             _ => Err(internal_err!("PD cluster failed to respond")),

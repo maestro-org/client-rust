@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::prelude::*;
 use futures::stream::BoxStream;
-use log::info;
+use log::debug;
 use tokio::sync::RwLock;
 
 use crate::compat::stream_fn;
@@ -347,7 +347,7 @@ impl<Cod: Codec, KvC: KvConnect + Send + Sync + 'static, Cl> PdRpcClient<Cod, Kv
         if let Some(client) = self.kv_client_cache.read().await.get(address) {
             return Ok(client.clone());
         };
-        info!("connect to tikv endpoint: {:?}", address);
+        debug!("connect to tikv endpoint: {:?}", address);
         match self.kv_connect.connect(address).await {
             Ok(client) => {
                 self.kv_client_cache

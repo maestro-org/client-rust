@@ -21,7 +21,6 @@ use futures::task::AtomicWaker;
 use futures::task::Context;
 use futures::task::Poll;
 use log::debug;
-use log::info;
 use pin_project::pin_project;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -107,7 +106,7 @@ async fn run_tso(
         sending_future_waker.wake();
     }
     // TODO: distinguish between unexpected stream termination and expected end of test
-    info!("TSO stream terminated");
+    debug!("TSO stream terminated");
     Ok(())
 }
 
