@@ -351,7 +351,7 @@ impl<Cod: Codec> Client<Cod> {
 
             range.from = Bound::Included(start_key.into());
 
-            info!("scanned {} keys, new range: {:?}", res.len(), range);
+            debug!("scanned {} keys, new range: {:?}", res.len(), range);
 
             let to_resolve = res.len();
 
