@@ -6,6 +6,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use log::debug;
 use log::info;
 use regex::Regex;
 use tonic::transport::Certificate;
@@ -79,7 +80,7 @@ impl SecurityManager {
     {
         let addr = "http://".to_string() + &SCHEME_REG.replace(addr, "");
 
-        info!("connect to rpc server at endpoint: {:?}", addr);
+        debug!("connect to rpc server at endpoint: {:?}", addr);
 
         let mut builder = Channel::from_shared(addr)?
             .tcp_keepalive(Some(Duration::from_secs(10)))
